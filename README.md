@@ -25,6 +25,21 @@ whatever this streams. That app is normally useless without a $15 capture card,
 because a capture card is the only thing it enumerates. This supplies one in
 software, over the cable you already have.
 
+## Why the modes stop at 1280x800
+
+The Deck's panel is **1280x800, which is 16:10 — not 16:9**. The offered modes are
+that aspect ratio and fractions of it: 1280x800, 960x600, 640x400.
+
+It is worth being precise about the ceiling, because it is not the one people
+assume. **Bandwidth is not the limit.** 1080p60 works out at about 7 MiB/s, well
+inside USB 2.0 High Speed's practical ~35 MiB/s. The limit is that the thing
+being streamed is a 1280x800 panel: going to 1080p would upscale it and invent
+detail that was never captured, costing CPU and bandwidth for nothing.
+
+The first version of this offered 1280x720, which is 16:9, and would have handed
+the host a letterboxed or squashed version of the screen. `tests/test_modes.py`
+exists to stop that coming back.
+
 ## Why MJPEG
 
 YUYV at 1080p is about 186 MB/s, which USB 2.0 High Speed cannot carry at any
@@ -78,7 +93,7 @@ Decky Loader → **Developer → Install Plugin from ZIP File** → `decky-captu
 | `main.py`, `src/index.tsx` | Decky surface and UI |
 
 ffmpeg does the pixel work in C with a SIMD JPEG encoder, which matters — this
-would not hold 30 fps at 720p in Python on a Deck's CPU. Python is left with
+would not hold 30 fps at 1280x800 in Python on a Deck's CPU. Python is left with
 framing and copying.
 
 The kernel documentation is blunt about the one thing that matters here:
@@ -94,7 +109,7 @@ part most likely to be wrong in detail.
 ## Limitations
 
 - **Desktop mode only**, for the DRM master reason above.
-- **1080p30 on the modes offered.** A cheap host-side app may still refuse.
+- **1280x800 at 30 fps, matching the panel.** Higher is not more detail; see above.
 - **A second or two of latency** through encode, USB and the host's own decode.
 - **Needs ffmpeg** on the Deck, which a stock SteamOS may not have.
 - **Nothing has been tested.** Treat the first run as an experiment.

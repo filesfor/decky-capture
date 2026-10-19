@@ -7,9 +7,15 @@ import decky
 sys.path.insert(0, os.path.dirname(__file__))
 from py_modules.decky_capture import capture, gadget, sink  # noqa: E402
 
-# What the gadget advertises. Deliberately a short list: the kernel cannot refuse
-# a format the host asks for, so every mode here is one we can actually encode.
-DEFAULT_MODES = [(1280, 720, 30), (960, 540, 30), (640, 480, 30)]
+# The Deck's panel is 1280x800, which is 16:10 -- not 16:9. The modes offered are
+# that aspect ratio and fractions of it, because the thing being streamed is this
+# screen: going above 1280x800 would upscale a 1280x800 panel and invent detail
+# that was never captured. Bandwidth is not the reason to stop there -- 1080p30
+# works out at 3.6 MiB/s against USB 2.0's ~35 MiB/s practical ceiling -- it is
+# simply nothing to gain.
+PANEL_WIDTH, PANEL_HEIGHT = 1280, 800
+
+DEFAULT_MODES = [(1280, 800, 30), (960, 600, 30), (640, 400, 30)]
 
 
 class Plugin:
