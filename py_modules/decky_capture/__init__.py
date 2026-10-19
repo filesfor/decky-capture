@@ -1,0 +1,1 @@
+"""Deck as Capture Card."""

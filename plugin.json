@@ -1,0 +1,11 @@
+{
+  "name": "Deck as Capture Card",
+  "author": "filesfor",
+  "flags": ["debug", "_root"],
+  "api_version": 1,
+  "publish": {
+    "tags": ["uvc", "capture", "streaming"],
+    "description": "Presents the Deck's own screen to a host as a USB camera, over one cable, with no capture hardware.",
+    "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/PluginLoader"
+  }
+}
