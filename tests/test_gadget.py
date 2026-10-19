@@ -20,16 +20,19 @@ class TreeTest(unittest.TestCase):
     def entries(self):
         return dict(gadget.format_tree(MODES))
 
-    def test_each_mode_gets_both_format_groups(self):
+    def test_each_mode_is_advertised_under_mjpeg(self):
+        # MJPEG only, deliberately: we cannot honour a YUYV selection, so
+        # advertising one would be a trap rather than an option.
         paths = [p for p, _ in gadget.format_tree(MODES)]
         self.assertIn("streaming/mjpeg/mjpeg/720p/width", paths)
-        self.assertIn("streaming/uncompressed/yuyv/480p/height", paths)
+        self.assertIn("streaming/mjpeg/mjpeg/480p/height", paths)
+        self.assertFalse([p for p in paths if "uncompressed" in p])
 
     def test_width_and_height_are_written_before_they_are_read(self):
         # Directories have to exist before the files inside them. The order
         # matters and nothing enforces it except this list.
         order = [p for p, _ in gadget.format_tree(MODES)]
-        for size_dir in ("streaming/mjpeg/mjpeg/720p", "streaming/uncompressed/yuyv/480p"):
+        for size_dir in ("streaming/mjpeg/mjpeg/720p", "streaming/mjpeg/mjpeg/480p"):
             self.assertLess(order.index(size_dir), order.index(f"{size_dir}/width"))
 
     def test_mjpeg_gets_pad_and_maxpacket_but_yuyv_does_not(self):

@@ -34,13 +34,90 @@ FRAME_INTERVALS_NS = {
     60: 16666667,
 }
 
+# The resolution ladder advertised to the host.
+#
+# Full ladder on purpose. The kernel cannot refuse a format the host asks for, so
+# advertising a wide choice hands the negotiation to the host, which is what real
+# capture hardware does. Offering three hand-picked modes instead means guessing
+# what the host wants, and the guess has no way to be corrected.
+#
+# The panel is 1280x800, so anything above that is an upscale rather than more
+# detail. It is still advertised: a host may want a 16:9 frame with letterboxing
+# handled on its side, and refusing to offer it would be the plugin deciding
+# something the host is better placed to decide.
+RESOLUTIONS = [
+    (1920, 1080),
+    (1600, 1200),
+    (1280, 1024),
+    (1280, 800),
+    (1280, 720),
+    (1024, 768),
+    (800, 600),
+    (720, 576),
+    (640, 480),
+]
+
+# MJPEG only, and deliberately so.
+#
+# YUYV is offered by real capture hardware and is what a lot of hosts prefer,
+# because it needs no decompression. Advertising it here would be a trap: the host
+# could select it, the kernel would accept it, and then this plugin would feed
+# MJPEG frames into a pipe configured for YUYV, which is not a degraded picture
+# but noise. Producing YUYV needs an MJPEG decoder, which a stock SteamOS may not
+# have, so it is not advertised rather than advertised and then betrayed.
+#
+# YUYV 1080p is also about 186 MB/s, which only fits on a SuperSpeed link. See
+# ``link_speed``.
+FORMAT_ONLY_MJPEG = True
+
 # The formats are declared as (group, format name, is_mjpeg):
-#   streaming/mjpeg/mjpeg/<size>            for MJPEG
-#   streaming/uncompressed/yuyv/<size>      for YUV 4:2:2
+#   streaming/mjpeg/mjpeg/<size>     for MJPEG
+#   streaming/uncompressed/yuyv/<size>  for YUV 4:2:2
 FORMAT_GROUPS = (
-    ("mjpeg", "mjpeg", True),
-    ("uncompressed", "yuyv", False),
+    (("mjpeg", "mjpeg", True),) if FORMAT_ONLY_MJPEG else
+    (("mjpeg", "mjpeg", True), ("uncompressed", "yuyv", False))
 )
+
+
+def modes_from_resolutions(resolutions=None, fps: int = 30):
+    """The (w, h, fps) list to advertise, from the resolution ladder."""
+    return [(w, h, fps) for w, h in (resolutions or RESOLUTIONS)]
+
+
+# Speeds as the kernel words them in /sys/class/udc/<udc>/speed.
+SPEED_HIGH = 1920     # 480 Mbit/s, USB 2.0
+SPEED_FULL = 480      # 12 Mbit/s, USB 1.1
+SPEED_SUPER = 5000    # 5 Gbit/s, USB 3.0
+
+
+def link_speed(udc: str | None = None) -> int | None:
+    """What the UDC negotiated, in Mbit/s.
+
+    Worth knowing and worth reporting: MJPEG fits on any of these, but the answer
+    decides whether YUYV at 1080p could ever be viable, which is about 186 MB/s
+    and needs SuperSpeed. The Deck's USB-C is USB 3.2 Gen 2, so the hardware is
+    capable; whether the gadget stack brings the UDC up at SuperSpeed is a
+    different question, and this is how you find out.
+    """
+    import os
+    try:
+        name = os.path.basename(udc or "")
+        for directory in os.listdir("/sys/class/udc"):
+            if udc is None or directory == name:
+                path = f"/sys/class/udc/{directory}/speed"
+                with open(path) as handle:
+                    return int(handle.read().strip())
+    except (OSError, ValueError):
+        return None
+    return None
+
+
+def link_description(udc: str | None = None) -> str:
+    speed = link_speed(udc)
+    if speed is None:
+        return "unknown"
+    return {SPEED_SUPER: "SuperSpeed", SPEED_HIGH: "High (USB 2.0)", SPEED_FULL: "Full (USB 1.1)"}.get(
+        speed, f"{speed} Mbit/s")
 
 
 class GadgetError(Exception):

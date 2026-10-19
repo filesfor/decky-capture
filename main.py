@@ -7,14 +7,12 @@ import decky
 sys.path.insert(0, os.path.dirname(__file__))
 from py_modules.decky_capture import capture, gadget, sink  # noqa: E402
 
-# The Deck's panel is 1280x800, which is 16:10 -- not 16:9. The modes offered are
-# that aspect ratio and fractions of it, because the thing being streamed is this
-# screen: going above 1280x800 would upscale a 1280x800 panel and invent detail
-# that was never captured. Bandwidth is not the reason to stop there -- 1080p30
-# works out at 3.6 MiB/s against USB 2.0's ~35 MiB/s practical ceiling -- it is
-# simply nothing to gain.
+# The Deck's panel is 1280x800, which is 16:10 -- not 16:9, and the modes below
+# reflect that. The gadget, though, advertises the whole ladder rather than this
+# list: the kernel cannot refuse a format the host asks for, so a narrow offer
+# makes the host's negotiation a guess made here instead of one it makes itself.
+# This list is only what the plugin suggests in its own UI.
 PANEL_WIDTH, PANEL_HEIGHT = 1280, 800
-
 DEFAULT_MODES = [(1280, 800, 30), (960, 600, 30), (640, 400, 30)]
 
 
@@ -70,8 +68,10 @@ class Plugin:
         return {
             "ffmpeg": shutil.which("ffmpeg"),
             "udc": udc,
+            "link": gadget.link_description(udc),
             "cards": cards,
             "modes": [list(m) for m in gadget.usable_modes(DEFAULT_MODES)],
+            "advertised": [list(m) for m in gadget.modes_from_resolutions()],
             "can_capture": bool(shutil.which("ffmpeg")),
         }
 
@@ -84,11 +84,15 @@ class Plugin:
             if not gadget.fits_usb2(mode[0], mode[1], mode[2]):
                 return {"running": False,
                         "error": f"{mode[0]}x{mode[1]} at {mode[2]} fps will not fit "
-                                 "USB 2.0 as MJPEG. Try a smaller mode."}
+                                 "the USB link as MJPEG. Try a smaller mode."}
 
             before = gadget.UvcGadget.list_video_nodes()
             self._gadget = gadget.UvcGadget()
-            device = self._gadget.create([mode], before=before)
+            # Advertise the full ladder, not just the chosen mode: the host is
+            # better placed than we are to decide, and the kernel will not refuse
+            # on our behalf if we guess wrong.
+            device = self._gadget.create(gadget.modes_from_resolutions(fps=mode[2]),
+                                         before=before)
             if not device:
                 self._gadget.teardown()
                 self._gadget = None
